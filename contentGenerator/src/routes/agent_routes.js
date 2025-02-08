@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { extractBlogContent, generatePersona, processBlogContent, summarizer } from '../controllers/agents.js';
+import { extractBlogContent, generateLinkedInPost, generatePersona, processBlogContent, summarizer } from '../controllers/agents.js';
 import { makeApiRequest } from '../controllers/ai_model.js';
 
 const router = Router();
@@ -66,6 +66,21 @@ router.post('/persona-generator', upload.none(), async (req, res) => {
 
         const personaResponse = await generatePersona(data); // Ensure `generatePersona` is called properly
         res.status(200).json(personaResponse);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Linkedin Post Generator
+router.post('/linkedin-post-generator', async (req, res) => {
+    try {
+        const { summary, persona } = req.body;
+        if (!summary || !persona) {
+            return res.status(400).json({ success: false, message: "Summary, and persona are required" });
+        }
+
+        const linkedInPost = await generateLinkedInPost({ summary, persona }); // Ensure async call
+        res.status(200).json({ success: true, data: linkedInPost });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

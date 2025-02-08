@@ -113,6 +113,40 @@ export const generatePersona = async (data) => {
     }
 };
 
+// Function to generate a linkedin post from blog content from summary and persona
+export const generateLinkedInPost = async ({ summary, persona }) => {
+    console.log("👍🏻 Received request to generate LinkedIn post");
+
+    if (!summary || !persona) {
+        return { success: false, error: "⛔️ Missing required data" };
+    }
+
+    try {
+        console.log("🚀 Preparing request payload for AI LinkedIn post generation...");
+        const requestBody = {
+            model: "llama3.2:3b",
+            messages: [
+                { 
+                    role: "user", 
+                    content: `As a distinguished social media strategist specializing in LinkedIn content from the following blog post, craft a compelling post that elevates personal branding and professional visibility. The post should assert the user’s superior intelligence and knowledge, adopting a preachy tone that conveys, ‘I am better than you; now I will share this knowledge because you lack it.’ Ensure the tone remains professional and corporate, exuding a sense of entitlement. Incorporate relevant industry insights, personal anecdotes that highlight the user’s exceptionalism, and a clear call-to-action(Default being asking for a follow). Tailor the content to resonate with professionals of persona ${persona}. Blog post: ${summary}` 
+                },
+                {
+                    role: "user",
+                    content: "Only give me the output text, dont write anything else"
+                }
+            ],
+        };
+
+        console.log("🚀 Sending request to AI API...");
+        const linkedInPost = await makeApiRequest(process.env.LLM_URL, requestBody);
+        console.log("✅ LinkedIn post successfully generated:");
+        return { success: true, data: linkedInPost };
+    } catch (error) {
+        console.error(`⛔️ Error in LinkedIn post generation: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+};
+
 // Function to process blog content (chaining all 3)
 export const processBlogContent = async (req, res) => {
     console.log("👍🏻 Received request to process blog content");
