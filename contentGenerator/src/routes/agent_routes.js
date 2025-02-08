@@ -1,9 +1,30 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { extractBlogContent, generatePersona, processBlogContent, summarizer } from '../controllers/agents.js';
+import { makeApiRequest } from '../controllers/ai_model.js';
 
 const router = Router();
 const upload = multer();
+
+// Basic test API request
+router.post('/', async (_, res) => {
+    try {
+         const requestBody = {
+            model: "llama3.2:3b",
+            messages: [
+                
+                { 
+                    role: "user", 
+                    content: "This is a test" 
+                },
+            ],
+        };
+        const output = await makeApiRequest(process.env.LLM_URL, requestBody);
+        res.status(200).json({success: true, data: output});
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
 
 // Blog to LinkedIn Post generator
 router.post('/process-blog', async (req, res) => {
