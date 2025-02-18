@@ -1,1 +1,5 @@
 contentGenerator/node_modules
+reddit_crawler/node_modules
+reddit_crawler/.env
+reddit_crawler/package-lock.json
+reddit_crawler/package.json

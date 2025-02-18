@@ -90,7 +90,7 @@ export const generatePersona = async (data) => {
     try {
         console.log("🚀 Preparing request payload for AI persona generation...");
         const requestBody = {
-            model: "llama3.2:3b",
+            model: "deepseek-r1:14b",
             messages: [
                 { 
                     role: "system", 
@@ -114,7 +114,7 @@ export const generatePersona = async (data) => {
 };
 
 // Function to generate a linkedin post from blog content from summary and persona
-export const generateLinkedInPost = async ({ summary, persona }) => {
+export const generateLinkedInPost = async ({ summary, persona, instructions = '' }) => {
     console.log("👍🏻 Received request to generate LinkedIn post");
 
     if (!summary || !persona) {
@@ -124,16 +124,14 @@ export const generateLinkedInPost = async ({ summary, persona }) => {
     try {
         console.log("🚀 Preparing request payload for AI LinkedIn post generation...");
         const requestBody = {
+            // model: "deepseek-r1:14b",
             model: "llama3.2:3b",
             messages: [
-                { 
-                    role: "user", 
-                    content: `As a distinguished social media strategist specializing in LinkedIn content from the following blog post, craft a compelling post that elevates personal branding and professional visibility. The post should assert the user’s superior intelligence and knowledge, adopting a preachy tone that conveys, ‘I am better than you; now I will share this knowledge because you lack it.’ Ensure the tone remains professional and corporate, exuding a sense of entitlement. Incorporate relevant industry insights, personal anecdotes that highlight the user’s exceptionalism, and a clear call-to-action(Default being asking for a follow). Tailor the content to resonate with professionals of persona ${persona}. Blog post: ${summary}` 
-                },
                 {
-                    role: "user",
-                    content: "Only give me the output text, dont write anything else"
-                }
+                    role: "user", 
+                    content: `As a distinguished social media strategist specializing in LinkedIn content from the following blog post, craft a compelling post that elevates personal branding and professional visibility. The post should assert the user’s superior intelligence and knowledge, adopting a preachy tone that conveys, ‘I am better than you; now I will share this knowledge because you lack it.’ Ensure the tone remains professional and corporate, exuding a sense of entitlement. Incorporate relevant industry insights, personal anecdotes that highlight the user’s exceptionalism, and a clear call-to-action(Default being asking for a follow). Tailor the content to resonate with professionals of persona ${persona}. Blog post: ${summary} ${instructions}
+                    Only return the LinkedIn post in plain text, dont write anything else. The contnet must have a super attention grabbing hook, bullet points body with clear valueable information, and a strong conclusion with a call to action and dont return the output in markdown language. Also think multiple times about coming up with a creative hook and try multiple iterations and chose the best one.`
+                },
             ],
         };
 
@@ -143,6 +141,58 @@ export const generateLinkedInPost = async ({ summary, persona }) => {
         return { success: true, data: linkedInPost };
     } catch (error) {
         console.error(`⛔️ Error in LinkedIn post generation: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+};
+
+// Post reviewer
+export const postReviewer = async ({ post, persona, threshold }) => {
+    console.log("👍🏻 Received request to review post");
+
+    if (!post || !persona) {
+        return { success: false, error: "⛔️ Missing required data" };
+    }
+
+    try {
+        console.log("🚀 Preparing request payload for AI post review...");
+        const requestBody = {
+            model: "llama3.2:3b",
+            messages: [
+                {
+                    role: "user",
+                    content: `As a distinguished social media strategist, review the following LinkedIn post for the target audience persona. Rate the post on a scale of 1-10 based on its effectiveness in engaging the target audience. If the rating is below ${threshold}, provide detailed instructions on how to improve the post. Post: ${post} Persona: ${persona}`
+                },
+            ],
+            format: {
+                "type": "object",
+                "properties": {
+                    "rating": {
+                        "type": "int"
+                    },
+                    "instructions": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                "rating",
+                "instructions"
+                ]
+            }
+        };
+
+        console.log("🚀 Sending request to AI API...");
+        const reviewResponse = await makeApiRequest(process.env.LLM_URL, requestBody);
+        const { rating, instructions } = reviewResponse;
+
+        if (rating < threshold) {
+            console.log("🔄 Post needs improvement");
+            return { success: false, instructions };
+        }
+
+        console.log("✅ Post is perfect");
+        return { success: true, data: post };
+    } catch (error) {
+        console.error(`⛔️ Error in post review: ${error.message}`);
         return { success: false, error: error.message };
     }
 };
@@ -172,6 +222,10 @@ export const processBlogContent = async (req, res) => {
         const personaResponse = await generatePersona(summaryResponse.data);
         if (!personaResponse.success) throw new Error("Persona not generated");
 
+        // Step 4: Generate LinkedIn post
+        console.log("Step 4️⃣: Generating LinkedIn post...");
+        const linkedInPost = await generateLinkedInPost({ summary: summaryResponse.data, persona: personaResponse.data });
+
         // Success
         console.log("✅ Successfully processed blog content");
         return res.status(200).json({   
@@ -180,6 +234,7 @@ export const processBlogContent = async (req, res) => {
                 url,
                 summary: summaryResponse,
                 persona: personaResponse,
+                linkedInPost,
             },
         });
     } catch (error) {

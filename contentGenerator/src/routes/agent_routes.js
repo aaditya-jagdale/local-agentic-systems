@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { extractBlogContent, generateLinkedInPost, generatePersona, processBlogContent, summarizer } from '../controllers/agents.js';
+import { extractBlogContent, generateLinkedInPost, generatePersona, postReviewer, processBlogContent, summarizer } from '../controllers/agents.js';
 import { makeApiRequest } from '../controllers/ai_model.js';
 
 const router = Router();
@@ -74,13 +74,35 @@ router.post('/persona-generator', upload.none(), async (req, res) => {
 // Linkedin Post Generator
 router.post('/linkedin-post-generator', async (req, res) => {
     try {
-        const { summary, persona } = req.body;
-        if (!summary || !persona) {
-            return res.status(400).json({ success: false, message: "Summary, and persona are required" });
+        const { blog, persona } = req.body;
+        if (!blog || !persona) {
+            return res.status(400).json({ success: false, message: "blog, and persona are required" });
+        }
+        
+        const linkedInPost = await generateLinkedInPost({ summary: blog, persona }); // Ensure async call
+        res.status(200).json({ success: true, data: linkedInPost });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Post rating AI
+router.post('/post-reviewer', async (req, res) => {
+    try {
+        const { post, persona, threshold = 7 } = req.body;
+        if (!post || !persona) {
+            return res.status(400).json({ success: false, message: "Post and persona are required" });
         }
 
-        const linkedInPost = await generateLinkedInPost({ summary, persona }); // Ensure async call
-        res.status(200).json({ success: true, data: linkedInPost });
+        let reviewResponse = await postReviewer({ post, persona, threshold });
+
+        while (!reviewResponse.success) {
+            const { instructions } = reviewResponse;
+            const newPostResponse = await generateLinkedInPost({ summary: post, persona, instructions });
+            reviewResponse = await postReviewer({ post: newPostResponse.data, persona, threshold });
+        }
+
+        res.status(200).json({ success: true, data: reviewResponse.data });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
